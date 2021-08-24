@@ -27,7 +27,14 @@ Vagrant.configure("2") do |config|
       ansible.extra_vars = {
         username: "#{ENV['USERNAME'] || `whoami`}",
       }
-    end  
+    end
+    $script = <<-SCRIPT
+    echo "configured networks: \n" 
+    ip -br a |grep -i up|awk '{print "INTERFACE:",$1,"ADDRESS:",$3}'
+    SCRIPT
+    zabbix.vm.provision "shell" do |shell|
+      shell.inline = $script
+    end
 	end
 end
   
