@@ -12,7 +12,7 @@
       - gnupg2
       #- mysql-server
 
-  - name: Add current user with a specific uid and a primary group of 'admin'
+  - name: Add current user with groups users, wheel
     ansible.builtin.user:
       name: "{{ username }}"
       uid: 1001
