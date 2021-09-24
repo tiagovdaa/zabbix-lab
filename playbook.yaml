@@ -39,7 +39,7 @@
 
   - name: Install packages
     dnf:
-      name: gnupg2,mysql-server,gnupg2,python3-pip,python3-devel,mariadb-devel,gcc
+      name: gnupg2,mysql-server,gnupg2,python3-pip #,python3-devel,mariadb-devel,gcc
       state: present
       update_cache: no
 
@@ -77,13 +77,37 @@
     mysql_db:
       name: zabbix
       state: present
+      collation: utf8_bin
       encoding: utf8
 #      login_user: root
 #      login_password: zabbix ###"{{ mysql_root_password }}"
 
   - name: import database ignoring errors
-      community.mysql.mysql_db:
-      name: zabbix
-      state: import
-      target: /usr/share/doc/zabbix-server-mysql*/create.sql.gz
-      force: yes
+    community.mysql.mysql_db:
+        name: zabbix
+        state: import
+        target: /usr/share/doc/zabbix-server-mysql/create.sql.gz
+        force: yes
+
+  - name: Set database password on configfile
+    ansible.builtin.lineinfile:
+      path: /etc/zabbix/zabbix_server.conf
+      regexp: '^DBPassword='
+      line: DBPassword=zabbix
+
+  - name: Change timezone
+    ansible.builtin.lineinfile:
+      path: /etc/php-fpm.d/zabbix.conf
+      regexp: '^php_value[date.timezone] = '
+      line: php_value[date.timezone] = America/Sao_Paulo
+
+  - name: Restart Zabbix Services
+    ansible.builtin.systemd:
+      name: "{{ item }}"
+      enabled: yes
+      state: restarted
+    with_items:
+      - zabbix-server
+      - zabbix-agent
+      - httpd
+      - php-fpm
