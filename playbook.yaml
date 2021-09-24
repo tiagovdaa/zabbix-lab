@@ -2,15 +2,6 @@
 - hosts: all
   become: true
   tasks:
-  - name: Install packages
-    yum:
-      name: "{{ packages }}"
-      state: present
-      update_cache: no
-    vars:
-      packages:
-      - gnupg2
-      #- mysql-server
 
   - name: Add current user with groups users, wheel
     ansible.builtin.user:
@@ -32,3 +23,67 @@
       regexp: '^%wheel'
       line: '%wheel ALL=(ALL) NOPASSWD: ALL'
       validate: 'visudo -cf %s'
+
+  - name: Disable SElinux (without reboot)
+    ansible.builtin.command: setenforce 0
+
+  - name: Disable SElinux (perment and requires reboot)
+    ansible.posix.selinux:
+      state: disabled
+
+  - name: disable service firewalld and ensure it is not enabled
+    ansible.builtin.systemd:
+      name: firewalld
+      enabled: no
+      state: stopped
+
+  - name: Install packages
+    dnf:
+      name: gnupg2,mysql-server,gnupg2,python3-pip,python3-devel,mariadb-devel,gcc
+      state: present
+      update_cache: no
+
+  - name: Start and enable MySQL Server
+    ansible.builtin.systemd:
+      name: mysqld
+      enabled: yes
+      state: started
+
+  - name: Install Zabbix Repo
+    dnf:
+      name: 'http://repo.zabbix.com/zabbix/5.0/rhel/8/x86_64/zabbix-release-5.0-1.el8.noarch.rpm'
+      state: present
+      disable_gpg_check: yes
+      update_cache: True
+
+  - name: Install mysqlclient python package
+    pip:
+      name: pymysql
+
+  - name: Install Zabbix Packages
+    dnf:
+      name: zabbix-server-mysql,zabbix-web-mysql,zabbix-apache-conf,zabbix-agent
+      state: present
+      update_cache: True
+
+  - name: Create database user zabbix with all database privileges
+    community.mysql.mysql_user:
+      name: zabbix
+      password: zabbix
+      priv: '*.*:ALL'
+      state: present
+
+  - name: create a new database
+    mysql_db:
+      name: zabbix
+      state: present
+      encoding: utf8
+#      login_user: root
+#      login_password: zabbix ###"{{ mysql_root_password }}"
+
+  - name: import database ignoring errors
+      community.mysql.mysql_db:
+      name: zabbix
+      state: import
+      target: /usr/share/doc/zabbix-server-mysql*/create.sql.gz
+      force: yes
